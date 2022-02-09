@@ -1,4 +1,12 @@
-import zoo
+try:
+    import zoo
+except ImportError:
+    print("Not running in zoo instance")  
+    class ZooStub(object):
+        def __ini__(self):
+            self.SERVICE_SUCCEEDED = False
+            self.SERVICE_FAILED = False
+    pass
 
 from .calrissian import CalrissianRunner
 
