@@ -11,11 +11,8 @@ class CalrissianRunner(object):
     
     def update_status(self, progress):
 
-        if self.zoo: 
-            self.zoo.update_status(self.conf, progress)
-        else:
-            print(f"Current status: {progress}") 
-
+        self.zoo.update_status(self.conf, progress)
+        
     def execute(self):
 
         # do something
