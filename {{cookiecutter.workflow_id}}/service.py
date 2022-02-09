@@ -1,17 +1,20 @@
 try:
     import zoo
 except ImportError:
-    print("Not running in zoo instance")  
+    print("Not running in zoo instance")
+
     class ZooStub(object):
         def __init__(self):
             self.SERVICE_SUCCEEDED = False
             self.SERVICE_FAILED = False
-        def update_status(conf, progress):
+
+        def update_status(self, conf, progress):
             print(f"Status {progress}")
+
     zoo = ZooStub()
     pass
 
-from .calrissian import CalrissianRunner
+from calrissian_runner import CalrissianRunner
 
 def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
 
