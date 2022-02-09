@@ -16,6 +16,7 @@ except ImportError:
 
 from calrissian_runner import CalrissianRunner
 
+
 def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
 
     runner = CalrissianRunner(zoo=zoo, conf=conf, inputs=inputs, outputs=outputs)
