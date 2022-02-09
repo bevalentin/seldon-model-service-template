@@ -13,7 +13,7 @@ except ImportError:
 
 from .calrissian import CalrissianRunner
 
-def {{cookiercutte.workflow_id}}(conf, inputs, outputs):
+def {{cookiecutter.workflow_id}}(conf, inputs, outputs):
 
     runner = CalrissianRunner(zoo=zoo, conf=conf, inputs=inputs, outputs=outputs)
 
