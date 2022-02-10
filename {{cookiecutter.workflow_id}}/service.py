@@ -5,8 +5,8 @@ except ImportError:
 
     class ZooStub(object):
         def __init__(self):
-            self.SERVICE_SUCCEEDED = False
-            self.SERVICE_FAILED = False
+            self.SERVICE_SUCCEEDED = 1
+            self.SERVICE_FAILED = 0
 
         def update_status(self, conf, progress):
             print(f"Status {progress}")
