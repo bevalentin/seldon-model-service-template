@@ -21,7 +21,9 @@ except ImportError:
     zoo = ZooStub()
     pass
 
-from calrissian_runner import CalrissianRunner
+#from calrissian_runner import CalrissianRunner
+import importlib
+importlib.import_module("{{cookiecutter.workflow_id |replace("-", "_")  }}.calrissian_runner","CalrissianRunner")
 
 
 def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
