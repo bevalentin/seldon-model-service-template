@@ -2,9 +2,9 @@
 
 class CalrissianRunner(object):
     
-    def __init__(self, zoo, conf, inputs, outputs):
+    def __init__(self, conf, inputs, outputs):
 
-        self.zoo = zoo
+        #self.zoo = zoo
         self.conf = conf
         self.inputs = inputs
         self.outputs = outputs
@@ -16,14 +16,15 @@ class CalrissianRunner(object):
     def execute(self):
 
         # do something
-        print("hello world!")
+        #print("hello world!")
 
-        self.update_status(20)
+        #self.update_status(20)
 
-        print("again")
+        #print("again")
 
-        self.update_status(100)
+        #self.update_status(100)
 
-        self.outputs["Result"]["value"] = "a value"
+        self.outputs["stac"]["value"] = ("Success!")
+
 
         return True

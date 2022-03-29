@@ -1,36 +1,14 @@
 # see https://zoo-project.github.io/workshops/2014/first_service.html#f1
 
+import zoo
 
-try:
-    import zoo
-except ImportError:
-    print("Not running in zoo instance")
-
-    class ZooStub(object):
-        def __init__(self):
-            self.SERVICE_SUCCEEDED = 3
-            self.SERVICE_FAILED = 4
-
-        def update_status(self, conf, progress):
-            print(f"Status {progress}")
-
-        def _(self, message):
-            print(f"invoked _ with {message}")
-    conf = {}
-    conf["lenv"] = {"message": ""}
-    zoo = ZooStub()
-    pass
-
-#from calrissian_runner import CalrissianRunner
 import importlib
-
-import importlib, sys
 importlib.import_module("{{cookiecutter.workflow_id |replace("-", "_")  }}.calrissian_runner","CalrissianRunner")
 from dnbr.calrissian_runner import CalrissianRunner
 
 def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
 
-    runner = CalrissianRunner(zoo=zoo, conf=conf, inputs=inputs, outputs=outputs)
+    runner = CalrissianRunner(conf=conf, inputs=inputs, outputs=outputs)
 
     exit_status = runner.execute()
 
