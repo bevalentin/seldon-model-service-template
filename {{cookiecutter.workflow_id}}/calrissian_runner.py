@@ -24,7 +24,8 @@ class CalrissianRunner(object):
 
         #self.update_status(100)
 
-        self.outputs["stac"]["value"] = ("Success!")
+        result_key = list(self.outputs.keys())[0]
+        self.outputs[result_key]["value"] = ("Success!")
 
 
         return True
