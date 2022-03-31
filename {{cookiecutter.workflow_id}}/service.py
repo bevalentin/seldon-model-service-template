@@ -4,7 +4,7 @@ import zoo
 
 import importlib
 importlib.import_module("{{cookiecutter.workflow_id |replace("-", "_")  }}.calrissian_runner","CalrissianRunner")
-from dnbr.calrissian_runner import CalrissianRunner
+from {{cookiecutter.workflow_id}}.calrissian_runner import CalrissianRunner
 
 def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
 
