@@ -1,10 +1,9 @@
-
+import sys
 
 class CalrissianRunner(object):
     
     def __init__(self, conf, inputs, outputs):
 
-        #self.zoo = zoo
         self.conf = conf
         self.inputs = inputs
         self.outputs = outputs
@@ -15,17 +14,17 @@ class CalrissianRunner(object):
         
     def execute(self):
 
-        # do something
-        #print("hello world!")
+        print("Job started",file=sys.stderr)
 
-        #self.update_status(20)
+        self.update_status(20)
 
-        #print("again")
+        print("Job is running",file=sys.stderr)
 
-        #self.update_status(100)
+        self.update_status(100)
+
+        print("Job has finished running",file=sys.stderr)
 
         result_key = list(self.outputs.keys())[0]
         self.outputs[result_key]["value"] = ("Success!")
-
 
         return True
