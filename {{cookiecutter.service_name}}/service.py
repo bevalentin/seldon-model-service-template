@@ -1,29 +1,12 @@
-import base64
-import json
-import os
+# see https://zoo-project.github.io/workshops/2014/first_service.html#f1
 import pathlib
-import sys
+import zoo
 import yaml
-
+import os
+import json
+import importlib
+import base64
 from zoo_calrissian_runner import ExecutionHandler, ZooCalrissianRunner
-
-try:
-    import zoo
-except ImportError:
-
-    class ZooStub(object):
-        def __init__(self):
-            self.SERVICE_SUCCEEDED = 3
-            self.SERVICE_FAILED = 4
-
-        def update_status(self, conf, progress):
-            print(f"Status {progress}")
-
-        def _(self, message):
-            print(f"invoked _ with {message}")
-
-    zoo = ZooStub()
-
 
 class CalrissianRunnerExecutionHandler(ExecutionHandler):
     def get_pod_env_vars(self):
@@ -34,14 +17,15 @@ class CalrissianRunnerExecutionHandler(ExecutionHandler):
         return None
 
     def get_secrets(self):
-
         username = os.getenv("CR_USERNAME", None)
         password = os.getenv("CR_TOKEN", None)
         registry = os.getenv("CR_ENDPOINT", None)
 
-        auth = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("utf-8")
+        auth = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode(
+            "utf-8"
+        )
 
-        secret_config = {
+        return {
             "auths": {
                 registry: {
                     "username": username,
@@ -50,24 +34,25 @@ class CalrissianRunnerExecutionHandler(ExecutionHandler):
             }
         }
 
-        return secret_config
-
     def get_additional_parameters(self):
-
         return {
-            "ADES_STAGEIN_AWS_SERVICEURL": os.getenv("AWS_SERVICE_URL", None),
-            "ADES_STAGEIN_AWS_REGION": os.getenv("AWS_REGION", None),
-            "ADES_STAGEIN_AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", None),
-            "ADES_STAGEIN_AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", None),
-
             "ADES_STAGEOUT_AWS_SERVICEURL": os.getenv("AWS_SERVICE_URL", None),
             "ADES_STAGEOUT_AWS_REGION": os.getenv("AWS_REGION", None),
             "ADES_STAGEOUT_AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", None),
-            "ADES_STAGEOUT_AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", None),
-            "ADES_STAGEOUT_OUTPUT": os.getenv("ADES_STAGEOUT_OUTPUT", None)
+            "ADES_STAGEOUT_AWS_SECRET_ACCESS_KEY": os.getenv(
+                "AWS_SECRET_ACCESS_KEY", None
+            ),
+            "ADES_STAGEIN_AWS_SERVICEURL": os.getenv("AWS_SERVICE_URL", None),
+            "ADES_STAGEIN_AWS_REGION": os.getenv("AWS_REGION", None),
+            "ADES_STAGEIN_AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", None),
+            "ADES_STAGEIN_AWS_SECRET_ACCESS_KEY": os.getenv(
+                "AWS_SECRET_ACCESS_KEY", None
+            ),
+            "ADES_STAGEOUT_OUTPUT": "s3://eoepca-ades",
         }
 
-    def handle_outputs(self, log, output, usage_report):
+    def handle_outputs(self, log, output, usage_report, tool_logs):
+        print(tool_logs)
 
         os.makedirs(
             os.path.join(self.conf["tmpPath"], self.job_id),
@@ -77,12 +62,14 @@ class CalrissianRunnerExecutionHandler(ExecutionHandler):
         with open(os.path.join(self.conf["tmpPath"], self.job_id, "job.log"), "w") as f:
             f.writelines(log)
 
-        with open(os.path.join(self.conf["tmpPath"], self.job_id, "output.json"), "w") as output_file:
+        with open(
+            os.path.join(self.conf["tmpPath"], self.job_id, "output.json"), "w"
+        ) as output_file:
             json.dump(output, output_file, indent=4)
 
         with open(
-                os.path.join(self.conf["tmpPath"], self.job_id, "usage-report.json"),
-                "w",
+            os.path.join(self.conf["tmpPath"], self.job_id, "usage-report.json"),
+            "w",
         ) as usage_report_file:
             json.dump(usage_report, usage_report_file, indent=4)
 
@@ -93,25 +80,33 @@ class CalrissianRunnerExecutionHandler(ExecutionHandler):
             "log": os.path.join(self.job_id, "job.log"),
         }
 
-        with open(os.path.join(self.conf["tmpPath"], self.job_id, "report.json"), "w") as report_file:
+        with open(
+            os.path.join(self.conf["tmpPath"], self.job_id, "report.json"), "w"
+        ) as report_file:
             json.dump(aggregated_outputs, report_file, indent=4)
 
+        self.conf["service_logs"] = [
+            {
+                "url": f"https://someurl.com/{os.path.basename(tool_log)}",
+                "title": f"Tool log {os.path.basename(tool_log)}",
+                "rel": "related",
+            }
+            for tool_log in tool_logs
+        ]
 
-def {{cookiecutter.service_name |replace("-", "_")  }}(conf, inputs, outputs):
+        print(self.conf)
+
+
+def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
 
     with open(
-            os.path.join(
-                pathlib.Path(os.path.realpath(__file__)).parent.absolute(),
-                "app-package.cwl",
-            ),
-            "r",
+        os.path.join(
+            pathlib.Path(os.path.realpath(__file__)).parent.absolute(),
+            "app-package.cwl",
+        ),
+        "r",
     ) as stream:
         cwl = yaml.safe_load(stream)
-
-    conf["lenv"]["workflow_id"]="{{cookiecutter.workflow_id}}"
-
-
-    print(inputs, file=sys.stderr)
 
     runner = ZooCalrissianRunner(
         cwl=cwl,
@@ -123,7 +118,6 @@ def {{cookiecutter.service_name |replace("-", "_")  }}(conf, inputs, outputs):
     exit_status = runner.execute()
 
     if exit_status == zoo.SERVICE_SUCCEEDED:
-
         outputs = runner.outputs
         return zoo.SERVICE_SUCCEEDED
 
