@@ -115,6 +115,7 @@ def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
         outputs=outputs,
         execution_handler=CalrissianRunnerExecutionHandler(conf=conf),
     )
+    runner._namespace_name=f"{conf['lenv']['Identifier']}-{conf['lenv']['usid']}"
     exit_status = runner.execute()
 
     if exit_status == zoo.SERVICE_SUCCEEDED:
