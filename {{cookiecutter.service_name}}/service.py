@@ -52,23 +52,22 @@ class CalrissianRunnerExecutionHandler(ExecutionHandler):
         }
 
     def handle_outputs(self, log, output, usage_report, tool_logs):
-        print(tool_logs)
-
+        
         os.makedirs(
-            os.path.join(self.conf["tmpPath"], self.job_id),
+            os.path.join(self.conf["main"]["tmpPath"], self.job_id),
             mode=0o777,
             exist_ok=True,
         )
-        with open(os.path.join(self.conf["tmpPath"], self.job_id, "job.log"), "w") as f:
+        with open(os.path.join(self.conf["main"]["tmpPath"], self.job_id, "job.log"), "w") as f:
             f.writelines(log)
 
         with open(
-            os.path.join(self.conf["tmpPath"], self.job_id, "output.json"), "w"
+            os.path.join(self.conf["main"]["tmpPath"], self.job_id, "output.json"), "w"
         ) as output_file:
             json.dump(output, output_file, indent=4)
 
         with open(
-            os.path.join(self.conf["tmpPath"], self.job_id, "usage-report.json"),
+            os.path.join(self.conf["main"]["tmpPath"], self.job_id, "usage-report.json"),
             "w",
         ) as usage_report_file:
             json.dump(usage_report, usage_report_file, indent=4)
@@ -81,20 +80,18 @@ class CalrissianRunnerExecutionHandler(ExecutionHandler):
         }
 
         with open(
-            os.path.join(self.conf["tmpPath"], self.job_id, "report.json"), "w"
+            os.path.join(self.conf["main"]["tmpPath"], self.job_id, "report.json"), "w"
         ) as report_file:
             json.dump(aggregated_outputs, report_file, indent=4)
 
-        self.conf["service_logs"] = [
-            {
-                "url": f"https://someurl.com/{os.path.basename(tool_log)}",
-                "title": f"Tool log {os.path.basename(tool_log)}",
-                "rel": "related",
-            }
-            for tool_log in tool_logs
-        ]
-
-        print(self.conf)
+        # self.conf["service_logs"] = [
+        #     {
+        #         "url": f"https://someurl.com/{os.path.basename(tool_log)}",
+        #         "title": f"Tool log {os.path.basename(tool_log)}",
+        #         "rel": "related",
+        #     }
+        #     for tool_log in tool_logs
+        # ]
 
 
 def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
