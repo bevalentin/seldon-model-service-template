@@ -116,7 +116,7 @@ def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
     exit_status = runner.execute()
 
     if exit_status == zoo.SERVICE_SUCCEEDED:
-        outputs = runner.outputs
+        outputs = runner.outputs.outputs
         return zoo.SERVICE_SUCCEEDED
 
     else:
