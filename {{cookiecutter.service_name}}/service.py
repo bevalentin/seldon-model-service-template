@@ -1,128 +1,109 @@
-# see https://zoo-project.github.io/workshops/2014/first_service.html#f1
-import pathlib
-import zoo
-import yaml
-import os
+try:
+    import zoo
+except ImportError:
+
+    class ZooStub(object):
+        def __init__(self):
+            self.SERVICE_SUCCEEDED = 3
+            self.SERVICE_FAILED = 4
+
+        def update_status(self, conf, progress):
+            print(f"Status {progress}")
+
+        def _(self, message):
+            print(f"invoked _ with {message}")
+
+    zoo = ZooStub()
+
 import json
-import importlib
-import base64
-from zoo_calrissian_runner import ExecutionHandler, ZooCalrissianRunner
+import os
+import requests
+import sys
 
-class CalrissianRunnerExecutionHandler(ExecutionHandler):
-    def get_pod_env_vars(self):
-        # sets two env vars in the pod launched by Calrissian
-        return {"A": "1", "B": "1"}
+from datetime import datetime
+from loguru import logger
 
-    def get_pod_node_selector(self):
-        return None
+# For DEBUG
+import traceback
 
-    def get_secrets(self):
-        username = os.getenv("CR_USERNAME", None)
-        password = os.getenv("CR_TOKEN", None)
-        registry = os.getenv("CR_ENDPOINT", None)
+logger.remove()
+logger.add(sys.stderr, level="DEBUG")
 
-        auth = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode(
-            "utf-8"
-        )
 
-        return {
-            "auths": {
-                registry: {
-                    "username": username,
-                    "auth": auth,
-                },
+def execute():
+    # Doc: https://docs.seldon.io/projects/seldon-core/en/latest/reference/apis/v2-protocol.html
+    
+    # TODO Obtain the infer URL template from configuration
+    # model_namespace = conf["seldonModels"]["namespace"]
+    # model_infer_port = conf["seldonModels"]["inferPort"]
+    # model_infer_path = conf["seldonModels"]["inferPath"]
+    model_infer_url = f"http://{{cookiecutter.service_name}}.exploitation.svc.cluster.local:8000/v2/models/classifier/infer" # noqa
+
+    model_ready_url = model_infer_url.replace("/infer", "/ready")
+    model_metadata_url = model_infer_url.replace("/infer", "")
+
+    res = requests.get(model_ready_url)
+    logger.info("Model ready status code (reason): %s %s", res.status_code, res.reason)
+    logger.info("Model ready text: %s", res.text)
+
+    res = requests.get(model_metadata_url)
+    logger.info("Model metadata status code (reason): %s %s", res.status_code, res.reason)
+    logger.info("Model metadata: %s", json.dumps(res.json(), indent=2))
+
+
+def fix_inputs(inputs):
+    # Issue: All input values are received as strings, even if they were int, float, etc.
+    for key in inputs.keys():
+        value = inputs[key].get("value", None)
+        # Issue in the issue: The "float" datatype is not present in the inputs data
+        dtype = inputs[key].get("dataType", "float")
+        if dtype == "integer" and isinstance(value, str):
+            inputs[key]["value"] = int(value)
+        if dtype == "float" and isinstance(value, str):
+            inputs[key]["value"] = float(value)
+
+
+def {{cookiecutter.workflow_id |replace("-", "_") }}(conf, inputs, outputs): # noqa
+
+    try:
+        fix_inputs(inputs)
+        logger.info("Config:\n" + json.dumps(conf, indent=2))
+        logger.info("Inputs:\n" + json.dumps(inputs, indent=2))
+        logger.info("Outputs:\n" + json.dumps(outputs, indent=2))
+
+        # we are changing the working directory to store the outputs in a directory dedicated to this execution
+        #working_dir = os.path.join(conf["main"]["tmpPath"], runner.get_namespace_name())
+        now = datetime.now().isoformat()
+        working_dir = os.path.join(conf["main"]["tmpPath"], f"{{cookiecutter.service_name}}_{now}")
+        os.makedirs(working_dir, mode=0o777, exist_ok=True)
+        os.chdir(working_dir)
+
+        # TODO INVOKE THE MODEL HERE
+
+        exit_status = zoo.SERVICE_SUCCEEDED
+
+        if exit_status == zoo.SERVICE_SUCCEEDED:
+            logger.info(f"Storing the model output on disk")
+            model_outputs = { "model_outputs": [ 5.576883936610762 ] }
+            data = {
+                "outputs": [{
+                    "data": model_outputs
+                }]
             }
-        }
+            logger.info(f"Setting model output into output key {list(outputs.keys())[0]}")
+            outputs[list(outputs.keys())[0]]["value"] = json.dumps(model_outputs)
+            with open('output.json', 'w') as f:
+                json.dump(model_outputs, f, indent=2)
+            logger.info("Outputs:\n" + json.dumps(outputs, indent=2))
+            return zoo.SERVICE_SUCCEEDED
 
-    def get_additional_parameters(self):
-        return {
-            "ADES_STAGEOUT_AWS_SERVICEURL": os.getenv("AWS_SERVICE_URL", None),
-            "ADES_STAGEOUT_AWS_REGION": os.getenv("AWS_REGION", None),
-            "ADES_STAGEOUT_AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", None),
-            "ADES_STAGEOUT_AWS_SECRET_ACCESS_KEY": os.getenv(
-                "AWS_SECRET_ACCESS_KEY", None
-            ),
-            "ADES_STAGEIN_AWS_SERVICEURL": os.getenv("AWS_SERVICE_URL", None),
-            "ADES_STAGEIN_AWS_REGION": os.getenv("AWS_REGION", None),
-            "ADES_STAGEIN_AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", None),
-            "ADES_STAGEIN_AWS_SECRET_ACCESS_KEY": os.getenv(
-                "AWS_SECRET_ACCESS_KEY", None
-            ),
-            "ADES_STAGEOUT_OUTPUT": os.getenv("ADES_STAGEOUT_OUTPUT", None)
-        }
+        else:
+            conf["lenv"]["message"] = zoo._("Execution failed")
+            return zoo.SERVICE_FAILED
 
-    def handle_outputs(self, log, output, usage_report, tool_logs):
-        
-        os.makedirs(
-            os.path.join(self.conf["main"]["tmpPath"], self.job_id),
-            mode=0o777,
-            exist_ok=True,
-        )
-        with open(os.path.join(self.conf["main"]["tmpPath"], self.job_id, "job.log"), "w") as f:
-            f.writelines(log)
-
-        with open(
-            os.path.join(self.conf["main"]["tmpPath"], self.job_id, "output.json"), "w"
-        ) as output_file:
-            json.dump(output, output_file, indent=4)
-
-        with open(
-            os.path.join(self.conf["main"]["tmpPath"], self.job_id, "usage-report.json"),
-            "w",
-        ) as usage_report_file:
-            json.dump(usage_report, usage_report_file, indent=4)
-
-        aggregated_outputs = {}
-        aggregated_outputs = {
-            "usage_report": usage_report,
-            "outputs": output,
-            "log": os.path.join(self.job_id, "job.log"),
-        }
-
-        with open(
-            os.path.join(self.conf["main"]["tmpPath"], self.job_id, "report.json"), "w"
-        ) as report_file:
-            json.dump(aggregated_outputs, report_file, indent=4)
-
-        # self.conf["service_logs"] = [
-        #     {
-        #         "url": f"https://someurl.com/{os.path.basename(tool_log)}",
-        #         "title": f"Tool log {os.path.basename(tool_log)}",
-        #         "rel": "related",
-        #     }
-        #     for tool_log in tool_logs
-        # ]
-
-
-def {{cookiecutter.workflow_id |replace("-", "_")  }}(conf, inputs, outputs):
-
-    with open(
-        os.path.join(
-            pathlib.Path(os.path.realpath(__file__)).parent.absolute(),
-            "app-package.cwl",
-        ),
-        "r",
-    ) as stream:
-        cwl = yaml.safe_load(stream)
-
-    runner = ZooCalrissianRunner(
-        cwl=cwl,
-        conf=conf,
-        inputs=inputs,
-        outputs=outputs,
-        execution_handler=CalrissianRunnerExecutionHandler(conf=conf),
-    )
-    runner._namespace_name=f"{conf['lenv']['Identifier']}-{conf['lenv']['usid']}"
-    exit_status = runner.execute()
-
-    if exit_status == zoo.SERVICE_SUCCEEDED:
-        # TODO remove hardcoded key StacCatalogUri which is defined in the main.cwl
-        # Remove the "stac" output from runner.outputs.outputs["stac"]["value"] in previous phases
-        out = {"StacCatalogUri": runner.outputs.outputs["stac"]["value"]["StacCatalogUri"] }
-        json_out_string= json.dumps(out, indent=4)
-        outputs["stac"]["value"]=json_out_string
-        return zoo.SERVICE_SUCCEEDED
-
-    else:
-        conf["lenv"]["message"] = zoo._("Execution failed")
+    except Exception as e:
+        logger.error("ERROR in processing execution template...")
+        stack = traceback.format_exc()
+        logger.error(stack)
+        conf["lenv"]["message"] = zoo._(f"Exception during execution...\n{stack}\n")
         return zoo.SERVICE_FAILED
