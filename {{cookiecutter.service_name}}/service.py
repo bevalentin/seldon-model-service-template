@@ -15,9 +15,9 @@ except ImportError:
 
     zoo = ZooStub()
 
+import http.client
 import json
 import os
-import requests
 import sys
 
 from datetime import datetime
@@ -30,25 +30,29 @@ logger.remove()
 logger.add(sys.stderr, level="DEBUG")
 
 
-def execute():
-    # Doc: https://docs.seldon.io/projects/seldon-core/en/latest/reference/apis/v2-protocol.html
-    
-    # TODO Obtain the infer URL template from configuration
-    # model_namespace = conf["seldonModels"]["namespace"]
-    # model_infer_port = conf["seldonModels"]["inferPort"]
-    # model_infer_path = conf["seldonModels"]["inferPath"]
-    model_infer_url = f"http://{{cookiecutter.service_name}}.exploitation.svc.cluster.local:8000/v2/models/classifier/infer" # noqa
+def request(method, baseurl, path, headers={}, data={}):
+    logger.info(f"Requesting: http://{baseurl}{path}")
+    conn = http.client.HTTPConnection(baseurl)
+    conn.request(method, path)
+    return conn.getresponse()
 
-    model_ready_url = model_infer_url.replace("/infer", "/ready")
-    model_metadata_url = model_infer_url.replace("/infer", "")
 
-    res = requests.get(model_ready_url)
-    logger.info("Model ready status code (reason): %s %s", res.status_code, res.reason)
-    logger.info("Model ready text: %s", res.text)
+def check_model(baseurl, basepath):
+    res = request("GET", baseurl, basepath + "/ready")
+    logger.info(f"Model ready status: {res.status} {res.reason}")
+    logger.info("Model ready text: " + str(res.read()))
+    res = request("GET", baseurl, basepath)
+    logger.info(f"Model metadata status: {res.status} {res.reason}")
+    try:
+        res_text = res.read().decode("utf-8")
+        logger.info("Model metadata:\n" + json.dumps(json.loads(res_text), indent=2))
+    except:
+        logger.info("Model metadata text: " + str(res.read()))
 
-    res = requests.get(model_metadata_url)
-    logger.info("Model metadata status code (reason): %s %s", res.status_code, res.reason)
-    logger.info("Model metadata: %s", json.dumps(res.json(), indent=2))
+
+def execute(inputs={}):
+    logger.info("Executing the model with inputs:\n" + json.dumps(inputs, indent=2))
+    # TODO INVOKE THE MODEL HERE
 
 
 def fix_inputs(inputs):
@@ -71,14 +75,24 @@ def {{cookiecutter.workflow_id |replace("-", "_") }}(conf, inputs, outputs): # n
         logger.info("Inputs:\n" + json.dumps(inputs, indent=2))
         logger.info("Outputs:\n" + json.dumps(outputs, indent=2))
 
-        # we are changing the working directory to store the outputs in a directory dedicated to this execution
+        # We are changing the working directory to store the outputs in a directory dedicated to this execution
         #working_dir = os.path.join(conf["main"]["tmpPath"], runner.get_namespace_name())
         now = datetime.now().isoformat()
         working_dir = os.path.join(conf["main"]["tmpPath"], f"{{cookiecutter.service_name}}_{now}")
         os.makedirs(working_dir, mode=0o777, exist_ok=True)
         os.chdir(working_dir)
 
-        # TODO INVOKE THE MODEL HERE
+        # https://docs.seldon.io/projects/seldon-core/en/latest/reference/apis/v2-protocol.html
+        model_svc_name = "{{cookiecutter.service_name}}"
+        # TODO Get the namespace, port and basepath from the configuration
+        model_namespace = "exploitation"
+        model_baseurl = f"{model_svc_name}.{model_namespace}.svc.cluster.local:9000"
+        model_basepath = "/v2/models/classifier"
+
+        check_model(model_baseurl, model_basepath)
+        check_model("{{cookiecutter.service_name}}")
+        exec_outputs = execute(inputs=inputs)
+        logger.info("Execution outputs:\n" + str(exec_outputs))
 
         exit_status = zoo.SERVICE_SUCCEEDED
 
